@@ -28,8 +28,16 @@ color_level_2 = input.color(color.new(color.orange, 0), "Couleur Niveau 2", grou
 color_level_3 = input.color(color.new(color.red, 0), "Couleur Niveau 3", group="Couleurs")
 
 // ============================================================================
-// CALCUL DU PRIX DE RÉFÉRENCE
+// CALCUL DU PRIX DE RÉFÉRENCE (VWAP à 15:59:30)
 // ============================================================================
+
+// Variables pour stocker le fix price VWAP
+var float fix_price_vwap = na
+var int fix_price_vwap_bar = na
+var bool fix_price_captured = false
+
+// Calculer la VWAP
+vwap_value = ta.vwap(close)
 
 // Détection du changement de jour (nouvelle session)
 var float reference_price = na
@@ -38,7 +46,10 @@ var int reference_bar = na
 // Obtenir le prix de clôture de la veille ou l'ouverture de la session
 is_new_day = ta.change(dayofweek) != 0
 
+// Réinitialiser au nouveau jour
 if is_new_day or barstate.isfirst
+    fix_price_captured := false
+    fix_price_vwap := na
     if reference_source == "Previous Close"
         reference_price := close[1]
     else if reference_source == "Session Open"
@@ -50,6 +61,22 @@ if is_new_day or barstate.isfirst
 // Si pas de prix de référence encore (premier bar), utiliser l'ouverture
 if na(reference_price)
     reference_price := open
+
+// Capturer la VWAP à 15:59:30 (Chicago/CME time)
+// Utiliser hour et minute pour détecter le moment exact
+current_hour = hour(time, "America/Chicago")
+current_minute = minute(time, "America/Chicago")
+current_second = second(time, "America/Chicago")
+
+// Capturer la VWAP exactement à 15:59:30 ou après (pour gérer différentes timeframes)
+// L'heure cible est 15:59:30 = 15*3600 + 59*60 + 30 = 57570 secondes
+target_time_seconds = 15*3600 + 59*60 + 30
+current_time_seconds = current_hour*3600 + current_minute*60 + current_second
+
+if not fix_price_captured and current_time_seconds >= target_time_seconds
+    fix_price_vwap := vwap_value
+    fix_price_vwap_bar := bar_index
+    fix_price_captured := true
 
 // ============================================================================
 // CALCUL DES NIVEAUX DE LIMITE
@@ -108,8 +135,8 @@ if is_new_day
 // AFFICHAGE
 // ============================================================================
 
-// Tracer le prix de référence
-plot(reference_price, "Prix de Référence", color=color.new(color.blue, 70), linewidth=1, style=plot.style_line)
+// Tracer le Fix Price VWAP (trait bleu) uniquement après 15:59:30
+plot(fix_price_captured ? fix_price_vwap : na, "Fix Price VWAP (15:59:30)", color=color.new(color.blue, 0), linewidth=2, style=plot.style_line)
 
 // Tracer les niveaux de limite (en pointillés)
 plot(show_level_1 ? upper_limit_1 : na, "Limite Haute Niv.1", color=color.new(color_level_1, 70), linewidth=1, style=plot.style_linebr)
