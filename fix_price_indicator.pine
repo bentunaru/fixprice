@@ -34,17 +34,25 @@ color_level_3 = input.color(color.new(color.red, 0), "Couleur Niveau 3", group="
 // Détection du changement de jour (nouvelle session)
 var float reference_price = na
 var int reference_bar = na
+var float daily_open = na
+var float daily_previous_close = na
 
-// Obtenir le prix de clôture de la veille ou l'ouverture de la session
-is_new_day = ta.change(dayofweek) != 0
+// Détection correcte d'un nouveau jour de trading
+is_new_day = ta.change(time("D")) != 0
 
+// Au début d'un nouveau jour, capturer le prix d'ouverture et la clôture précédente
 if is_new_day or barstate.isfirst
+    daily_open := open
+    daily_previous_close := close[1]
+
+    // Définir le prix de référence selon la source choisie
     if reference_source == "Previous Close"
-        reference_price := close[1]
+        reference_price := daily_previous_close
     else if reference_source == "Session Open"
-        reference_price := open
+        reference_price := daily_open
     else // Custom
         reference_price := custom_reference
+
     reference_bar := bar_index
 
 // Si pas de prix de référence encore (premier bar), utiliser l'ouverture
